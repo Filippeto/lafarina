@@ -1,0 +1,11 @@
+import {readFileSync,writeFileSync,readdirSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {resolve,dirname} from 'node:path';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const read=p=>readFileSync(resolve(root,p),'utf8');
+const assets=Object.fromEntries(readdirSync(resolve(root,'public/assets')).map(n=>[n,`data:image/${n.endsWith('.png')?'png':'jpeg'};base64,${readFileSync(resolve(root,'public/assets',n)).toString('base64')}`]));
+let js=['data.js','store.js','view.js'].map(n=>read('src/'+n).replace(/^import .*?;\s*$/gm,'').replace(/\bexport (?:default )?/g,'')).join('\n');
+js=js.replace('const asset=n=>`./assets/${n}`;',`const embeddedAssets=${JSON.stringify(assets)};const asset=n=>embeddedAssets[n]||'';`);
+const runner=`const root=document.getElementById('root'),toast=document.getElementById('toast-root');let previous='';function render(){const state=getState(),html=shell({...state,toast:''});if(html!==previous){root.innerHTML=html;previous=html}toast.replaceChildren();if(state.toast){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent='✓ '+state.toast;toast.append(t)}}subscribe(render);render();root.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el)action(el)});root.addEventListener('submit',e=>{e.preventDefault();submit(e.target)});root.addEventListener('change',e=>change(e.target));window.addEventListener('keydown',e=>{if(e.key==='Escape')update({modal:null,menu:false})});`;
+const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#633b2b"><title>La Farina Studio · V0.1</title><style>${read('src/styles.css')}</style></head><body><div id="root"></div><div id="toast-root"></div><script>${js.replace(/<\/script/gi,'<\\/script')}\n${runner}</script></body></html>`;
+const out=process.argv[2]||resolve(root,'LaFarina-Studio-Preview.html');writeFileSync(out,html);console.log(out);
